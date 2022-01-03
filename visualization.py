@@ -463,30 +463,32 @@ for f in source:
     preds_l16 = model_l.predict(x)[0] # 3rd top
     print(preds_l16)    
     
-    # compute attention maps : for DenseNet-121 model
-    InImage1, OutScores1, aCRM_Img1, tCRM_Img1 = Generate_CRM_2Class(model_d121,
+    # compute attention maps    
+    # for DenseNet-121 model
+    InImage1, OutScores1, attention_map_d121, tCRM_Img1 = Generate_CRM_2Class(model_d121,
                                                                  f, 0.2) 
-    aHeatmap_d121 = cv2.applyColorMap(np.uint8(255*aCRM_Img1), cv2.COLORMAP_JET)   
         
-    # for Vit_B32 model
-    attention_map_b32 = visualize.attention_map(model=model_b32, image=image1)
-    aHeatmap_b32 = cv2.applyColorMap(np.uint8(255*attention_map_b32), cv2.COLORMAP_JET)
-       
     # for Vit_L16 model
     attention_map_l16 = visualize.attention_map(model=model_l16, image=image1)
-    aHeatmap_l16 = cv2.applyColorMap(np.uint8(255*attention_map_l16), cv2.COLORMAP_JET)
-
-    # compute the weighted average of the three attention maps using the
-    # SSLSQP weights identified during weighted averaging
-
-    heatmap_avg = (0.6631167 * aHeatmap_d121 + 0.1883307 * aHeatmap_b32 + \
-                           0.14855253 * aHeatmap_l16)/3 #from SLSQP weights
+    attention_map_l16 = cv2.resize(attention_map_l16, (image_size, image_size))
+    
+    # for Vit_B32 model
+    attention_map_b32 = visualize.attention_map(model=model_b32, image=image1)
+    attention_map_b32 = cv2.resize(attention_map_b32, (image_size, image_size))
+    
+    # heatmap_avg = (0.6631167 * attention_map_d121 + \
+    #                0.14855253 * attention_map_l16 + \
+    #                    0.1883307 * attention_map_b32)/3 #from SLQLP weights
+    heatmap_avg = (0.67114851 * attention_map_d121 + 0.32885149 * attention_map_b32)/2 #from SLQLP weights    
+    aHeatmap_avg = cv2.applyColorMap(np.uint8(255*heatmap_avg), cv2.COLORMAP_JET)
+    aHeatmap_avg[np.where(heatmap_avg < 0.25)] = 0 # thresholded to remove bnoise
     
     #compute superimposed image
-    superimposed_img_avg = heatmap_avg  * 0.4 + img     
+    superimposed_img_avg = aHeatmap_avg * 0.4 + img #0.4 here is a heatmap intensity factor.
+    
     writePNGwithdpi(superimposed_img_avg, 
-                    "activations/combined/{}.png".format(img_name[:-4]), (300,300))   
-
+                    "activations/combined/{}.png".format(img_name[:-4]), (300,300))  
+    
 #%%
 '''
 Once we store these images with the activation masks embedded, we run the following matlab code

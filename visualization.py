@@ -481,7 +481,7 @@ for f in source:
     #                    0.1883307 * attention_map_b32)/3 #from SLQLP weights
     heatmap_avg = (0.67114851 * attention_map_d121 + 0.32885149 * attention_map_b32)/2 #from SLQLP weights    
     aHeatmap_avg = cv2.applyColorMap(np.uint8(255*heatmap_avg), cv2.COLORMAP_JET)
-    aHeatmap_avg[np.where(heatmap_avg < 0.25)] = 0 # thresholded to remove bnoise
+    aHeatmap_avg[np.where(heatmap_avg < 0.25)] = 0 # thresholded to remove noise
     
     #compute superimposed image
     superimposed_img_avg = aHeatmap_avg * 0.4 + img #0.4 here is a heatmap intensity factor.

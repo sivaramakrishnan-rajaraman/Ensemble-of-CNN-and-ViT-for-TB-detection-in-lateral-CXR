@@ -445,6 +445,7 @@ for f in source:
 #%%
 # running the loop and recording the average activations using the 
 #SLSQP weights computed for the top-3 performing models
+# for simple averaging, use equal weights to combine the heatmaps and attention maps
 
 for f in source:
     img = load_img(f)
@@ -488,6 +489,55 @@ for f in source:
     
     writePNGwithdpi(superimposed_img_avg, 
                     "activations/combined/{}.png".format(img_name[:-4]), (300,300))  
+    
+
+#%%
+# performing Bitwise-AND of the top-2 performing models, viz. DenseNet-121 and VGG-16 models
+for f in source:
+    img = load_img(f)
+    img_name = f.split(os.sep)[-1] 
+    
+    #preprocess the image
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x /= 255 
+    
+    #preprocess the image
+    image1 = utils.read(img, image_size)
+    
+    # compute attention maps    
+    # for DenseNet-121 model
+    InImage1, OutScores1, attention_map_d121, tCRM_Img1 = Generate_CRM_2Class(model_d121,
+                                                                  f, 0.2)   
+    
+    # for VGG-16 model
+    InImage2, OutScores2, attention_map_vgg16, tCRM_Img2 = Generate_CRM_2Class(model_vgg16,
+                                                                  f, 0.2)    
+    heatmap_d121 = np.uint8(255 * attention_map_d121)
+    heatmap_vgg16 = np.uint8(255 * attention_map_vgg16)
+    heatmap_d121_1 = cv2.resize(heatmap_d121, (image_size, image_size))
+    (thresh1, im_bw1) = cv2.threshold(heatmap_d121_1, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    heatmap_vgg16_1 = cv2.resize(heatmap_vgg16, (image_size, image_size))
+    (thresh2, im_bw2) = cv2.threshold(heatmap_vgg16_1, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+
+    #bitwise-AND of the two heatmaps
+    img_and1 = cv2.bitwise_and(im_bw1,im_bw2)
+    
+    mask =  np.expand_dims(img_and1, 2) 
+    # give the mask the same shape as your image
+    mask = np.repeat(mask, 3, axis=2) 
+
+    # a dictionary for your colors, experiment with the values
+    colors = {"red": [0.,0.,1.], "green": [0.,1.,0.], 
+          "blue": [1.,0.,0.], "greenred": [0.,1.,1.],
+          "greenblue": [1.,1.,0.], "bluered": [1.,0.,1.]} # depending on your requirements
+
+    # broadcast multiplication (thanks to the multiplication by 0, 
+    #you'll end up with values different from 0 only on the relevant channels and the right regions)
+    colored_mask = np.multiply(mask, colors["bluered"]) 
+    #img = (image1/255)+colored_mask # will be in the range 0 - 1  
+    img = (image1)+colored_mask # will be in the range 0 - 1  
+    cv2.imwrite("activations/bitwise_AND/{}.png".format(img_name[:-4]), img)
     
 #%%
 '''
